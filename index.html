@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Biorhye - Biorhythm App</title>
+
+<!-- PWA Manifest & Favicon -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192x192.png">
+<meta name="theme-color" content="#007bff">
+<link rel="apple-touch-icon" href="icons/icon-192x192.png">
+
+<style>
+:root {--bg:#fff;--text:#111;--card:#f5f5f5;--accent:#007bff;}
+.dark {--bg:#121212;--text:#f2f2f2;--card:#1e1e1e;--accent:#00b3ff;}
+*{box-sizing:border-box;}
+body{font-family:"Poppins",sans-serif;background:var(--bg);color:var(--text);margin:0;padding:15px;display:flex;justify-content:center;align-items:flex-start;transition:all .3s ease;}
+.container{position:relative;background:var(--card);padding:20px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.1);text-align:center;width:100%;max-width:420px;}
+input,select,button{width:100%;padding:12px;margin:6px 0;border-radius:10px;border:none;font-size:16px;}
+button{background:var(--accent);color:#fff;cursor:pointer;font-weight:600;}
+button:hover{opacity:.9;}
+#result{text-align:left;margin-top:15px;max-height:250px;overflow-y:auto;font-size:14px;}
+.cycle{display:flex;justify-content:space-between;padding:4px 0;word-break:break-word;}
+.custom-box{background:rgba(0,0,0,0.05);padding:10px;border-radius:10px;margin-top:10px;}
+#chartContainer,#trendChartContainer{max-height:220px;overflow-y:auto;margin-top:15px;background:#fafafa;border-radius:10px;padding:10px;}
+canvas{width:100% !important;height:200px !important;}
+#filterOptions{padding-top:6px;}
+.filter-grid {display: grid;grid-template-columns: repeat(auto-fit, minmax(140px,1fr));gap:8px;align-items: center;justify-items: start;}
+.filter-grid label {display: flex;align-items:center;gap:6px;font-size:13px;white-space: nowrap;cursor:pointer;}
+.filter-grid input[type="checkbox"] {width: 16px;height: 16px;cursor:pointer;}
+#toggleMode{position:absolute;top:15px;right:15px;border:2px solid var(--text);border-radius:50%;width:50px;height:50px;background:var(--bg);color:var(--text);font-size:22px;cursor:pointer;display:flex;justify-content:center;align-items:center;transition:all 0.3s ease;z-index:10;}
+footer{margin-top:10px;font-size:12px;opacity:.7;}
+.info-icon{font-size:16px;margin-left:6px;cursor:pointer;color:var(--accent);}
+#tooltip{position:absolute;padding:6px 10px;background:var(--card);border:1px solid var(--accent);border-radius:6px;font-size:13px;pointer-events:none;opacity:0;transition:opacity 0.2s;z-index:20;}
+#helpContent{display:none;text-align:left;font-size:13px;margin-top:6px;}
+#helpHeader{cursor:pointer;}
+@media (min-width:600px){.container{max-width:680px;padding:25px;}}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>Biorhye</h1>
+
+<div class="custom-box">
+<h3 id="helpHeader">❓ How to Use This App <span class="info-icon"ℹ️</span></h3>
+<div id="helpContent">
+<p><b>1. Enter Name and Birth Date:</b> Required to calculate cycles.</p>
+<p><b>2. Target Date:</b> Defaults to today if left empty.</p>
+<p><b>3. Trend Range:</b> Select number of days to display in trend chart.</p>
+<p><b>4. Biorhythm Cycles:</b> Physical, Emotional, Intellectual, etc., affect different aspects of life.</p>
+<p><b>5. Custom Cycles:</b> Add your own cycle with name and length (days).</p>
+<p><b>6. Filter Cycles:</b> Toggle which cycles are displayed on charts.</p>
+<p><b>7. Charts:</b> Current chart shows today, trend chart shows selected range.</p>
+<p><b>8. Export:</b> Save charts as PNG or CSV.</p>
+</div>
+</div>
+
+<input type="text" id="name" placeholder="Enter your name">
+<label>Birth Date:</label>
+<input type="date" id="birthDate">
+<label>Target Date:</label>
+<input type="date" id="targetDate">
+<label>Trend Range (days):</label>
+<select id="trendRange">
+<option value="7">7 Days</option>
+<option value="14" selected>14 Days</option>
+<option value="30">30 Days</option>
+<option value="60">60 Days</option>
+</select>
+<button onclick="calculateBiorhythm()">Calculate</button>
+
+<div class="custom-box">
+<h3>➕ Add Custom Cycle</h3>
+<input type="text" id="customName" placeholder="Cycle Name">
+<input type="number" id="customDays" placeholder="Cycle Length (days)">
+<button onclick="addCustomCycle()">Add Cycle</button>
+<button style="background:#ff3333;margin-top:5px;" onclick="resetCustomCycles()">🗑 Reset Custom Cycles</button>
+</div>
+
+<div id="cycleFilter" class="custom-box">
+<h3 style="display:flex;align-items:center;justify-content:center;">🔹 Filter Cycles <span class="info-icon" title="Toggle which cycles are displayed on charts.">ℹ️</span></h3>
+<div id="filterOptions" class="filter-grid"></div>
+</div>
+
+<div id="result"></div>
+<div id="chartContainer"><canvas id="chart"></canvas></div>
+<div id="trendChartContainer">
+<h3 style="display:flex;align-items:center;justify-content:center;">📈 Trend Chart <span class="info-icon" title="Shows all cycles over selected range. High/Low highlighted.">ℹ️</span></h3>
+<canvas id="trendChart"></canvas>
+</div>
+
+<div style="display:flex;justify-content:space-between;margin-top:10px;flex-wrap:wrap;gap:8px;">
+<button onclick="exportChartImage()">📷 Export Chart Image</button>
+<button onclick="exportCSV()">📄 Export Data CSV</button>
+</div>
+
+<button id="toggleMode">🌙</button>
+<div id="tooltip"></div>
+<footer>© Manik Roy 2025. All Rights Reserved.</footer>
+
+</div>
+
+<script>
+// -------------------------
+// Core Variables & Functions
+// -------------------------
+let customCycles = JSON.parse(localStorage.getItem("customCycles")||"[]");
+let allCycles = [];
+let hiddenCycles = [];
+
+// Base Cycles
+function baseCycles(){return [
+{name:"Physical",days:23,color:"red"},{name:"Emotional",days:28,color:"green"},
+{name:"Intellectual",days:33,color:"blue"},{name:"Intuitive",days:38,color:"orange"},
+{name:"Aesthetic",days:43,color:"purple"},{name:"Awareness",days:48,color:"cyan"},
+{name:"Spiritual",days:53,color:"magenta"},{name:"Passion",days:58,color:"gold"},
+{name:"Mastery",days:63,color:"lime"},{name:"Wisdom",days:68,color:"teal"},
+{name:"Creativity",days:73,color:"coral"},{name:"Psychic",days:78,color:"deepskyblue"},
+{name:"Memory",days:83,color:"darkorange"},{name:"Perception",days:88,color:"olive"},
+{name:"Balance",days:94,color:"hotpink"},{name:"Empathy",days:100,color:"mediumseagreen"},
+{name:"Harmony",days:105,color:"slateblue"},{name:"Vitality",days:110,color:"crimson"},
+{name:"Adaptability",days:115,color:"darkcyan"},{name:"Confidence",days:120,color:"steelblue"},
+{name:"Motivation",days:125,color:"tomato"},{name:"Focus",days:130,color:"khaki"},
+{name:"Intellect Depth",days:135,color:"orchid"},{name:"Patience",days:140,color:"seagreen"},
+{name:"Social",days:145,color:"rosybrown"},{name:"Recovery",days:150,color:"dodgerblue"},
+{name:"Determination",days:155,color:"violet"},{name:"Strength",days:160,color:"firebrick"},
+{name:"Luck",days:165,color:"sienna"},{name:"Stability",days:170,color:"indigo"},
+{name:"Courage",days:175,color:"mediumvioletred"},{name:"Mindfulness",days:180,color:"mediumturquoise"},
+{name:"Compassion",days:185,color:"darkgoldenrod"},{name:"Leadership",days:190,color:"darkslateblue"},
+{name:"Vision",days:195,color:"mediumorchid"}
+];}
+
+// -------------------------
+// Help Toggle
+// -------------------------
+document.getElementById("helpHeader").addEventListener("click",()=>{
+  const h=document.getElementById("helpContent");
+  h.style.display=h.style.display==="none"?"block":"none";
+});
+
+// -------------------------
+// Custom Cycles
+// -------------------------
+function addCustomCycle(){
+  const name=document.getElementById("customName").value.trim();
+  const days=parseInt(document.getElementById("customDays").value);
+  if(!name||isNaN(days)||days<=0){alert("Enter valid name & days.");return;}
+  const colors=["#ff4500","#20b2aa","#9acd32","#dc143c","#6a5acd","#ff69b4","#00ced1"];
+  const color=colors[Math.floor(Math.random()*colors.length)];
+  customCycles.push({name,days,color});
+  localStorage.setItem("customCycles",JSON.stringify(customCycles));
+  document.getElementById("customName").value="";document.getElementById("customDays").value="";
+  calculateBiorhythm();
+}
+
+function resetCustomCycles(){
+  if(confirm("Delete all custom cycles?")){
+    customCycles=[]; localStorage.removeItem("customCycles");
+    calculateBiorhythm();
+  }
+}
+
+// -------------------------
+// Calculate Biorhythm
+// -------------------------
+function calculateBiorhythm() {
+    const name = document.getElementById("name").value.trim();
+    const birthDate = new Date(document.getElementById("birthDate").value);
+    const targetInput = document.getElementById("targetDate").value;
+    const targetDate = new Date(targetInput || new Date());
+    const trendRange = parseInt(document.getElementById("trendRange").value) || 14;
+
+    if (!name || isNaN(birthDate)) { alert("Enter name & birth date."); return; }
+
+    const daysSinceBirth = Math.floor((targetDate - birthDate) / (1000*60*60*24));
+    allCycles = [...baseCycles(), ...customCycles];
+    allCycles.forEach(c => c.value = Math.sin(2*Math.PI*daysSinceBirth/c.days));
+
+    renderFilterOptions();
+    renderResult(name, daysSinceBirth);
+    drawCurrentChart();
+    drawTrendChart(daysSinceBirth, trendRange);
+}
+
+// -------------------------
+// Render Result Section
+// -------------------------
+function renderResult(name, daysSinceBirth){
+    const resultEl = document.getElementById("result");
+    resultEl.innerHTML = `<h3>Hello, ${name}!</h3><p>Days since birth: <b>${daysSinceBirth}</b></p>`;
+    allCycles.forEach(c=>{
+        const percent = (c.value*100).toFixed(1);
+        const state = c.value>0.5?"High":c.value<-0.5?"Low":"Stable";
+        const div = document.createElement("div");
+        div.className = "cycle";
+        div.style.color = c.color;
+        div.innerHTML = `<span>${c.name}</span><span>${percent}% (${state})</span>`;
+        if(!hiddenCycles.includes(c.name)) resultEl.appendChild(div);
+    });
+}
+
+// -------------------------
+// Filter Options
+// -------------------------
+function renderFilterOptions(){
+    const container = document.getElementById("filterOptions");
+    container.innerHTML = "";
+    allCycles.forEach(c=>{
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = !hiddenCycles.includes(c.name);
+        checkbox.addEventListener("change",()=>toggleCycle(c.name, checkbox.checked));
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(c.name));
+        container.appendChild(label);
+    });
+}
+
+function toggleCycle(name, show){
+    if(show) hiddenCycles = hiddenCycles.filter(c=>c!==name);
+    else if(!hiddenCycles.includes(name)) hiddenCycles.push(name);
+    calculateBiorhythm();
+}
+
+// -------------------------
+// Draw Charts
+// -------------------------
+function drawCurrentChart(){
+    const canvas = document.getElementById("chart");
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const baseY = canvas.height/2, scale = canvas.height/2-20;
+    ctx.beginPath(); ctx.moveTo(0, baseY); ctx.lineTo(canvas.width, baseY);
+    ctx.strokeStyle="#aaa"; ctx.setLineDash([5,5]); ctx.stroke(); ctx.setLineDash([]);
+
+    const visible = allCycles.filter(c => !hiddenCycles.includes(c.name));
+    visible.forEach((c,i)=>{
+        const x = 25 + i*55;
+        const y = baseY - c.value*scale;
+        ctx.beginPath(); ctx.arc(x,y,5,0,2*Math.PI); ctx.fillStyle=c.color; ctx.fill();
+    });
+}
+
+function drawTrendChart(startDays, range){
+    const canvas = document.getElementById("trendChart");
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const baseY = canvas.height/2, scale = canvas.height/2-20;
+    ctx.beginPath(); ctx.moveTo(0, baseY); ctx.lineTo(canvas.width, baseY);
+    ctx.strokeStyle="#aaa"; ctx.setLineDash([5,5]); ctx.stroke(); ctx.setLineDash([]);
+
+    const visible = allCycles.filter(c => !hiddenCycles.includes(c.name));
+    const points=[];
+    visible.forEach(c=>{
+        ctx.beginPath();
+        for(let d=0; d<=range; d+=0.5){
+            const x = (d/range)*canvas.width;
+            const y = baseY - Math.sin(2*Math.PI*(startDays+d)/c.days)*scale;
+            if(d===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+            points.push({x,y,day:startDays+d,cycle:c});
+        }
+        ctx.strokeStyle = c.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    });
+
+    const tooltip = document.getElementById("tooltip");
+    const rect = canvas.getBoundingClientRect();
+    canvas.onmousemove = canvas.ontouchmove = function(e){
+        const mouseX=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+        const mouseY=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+        let found=false;
+        points.forEach(p=>{
+            const dx=mouseX-p.x, dy=mouseY-p.y;
+            if(Math.sqrt(dx*dx+dy*dy)<8){
+                tooltip.style.opacity=1;
+                tooltip.style.left=(p.x+rect.left+10)+"px";
+                tooltip.style.top=(p.y+rect.top-30)+"px";
+                const percent = (Math.sin(2*Math.PI*p.day/p.cycle.days)*100).toFixed(1);
+                const state = Math.sin(2*Math.PI*p.day/p.cycle.days)>0.5?"High":Math.sin(2*Math.PI*p.day/p.cycle.days)<-0.5?"Low":"Stable";
+                tooltip.innerHTML=`${p.cycle.name}: ${percent}% (${state}) Day:${Math.round(p.day)}`;
+                found=true;
+            }
+        });
+        if(!found) tooltip.style.opacity=0;
+    };
+    canvas.onmouseleave=canvas.ontouchend=function(){tooltip.style.opacity=0;};
+}
+
+// -------------------------
+// Export
+// -------------------------
+function exportChartImage(){
+    const chart=document.getElementById("chart");
+    const trend=document.getElementById("trendChart");
+    const link=document.createElement("a");
+    const canvas=document.createElement("canvas");
+    canvas.width=chart.width;
+    canvas.height=chart.height+trend.height+10;
+    const ctx=canvas.getContext("2d");
+    ctx.drawImage(chart,0,0);
+    ctx.drawImage(trend,0,chart.height+10);
+    link.href=canvas.toDataURL("image/png");
+    link.download="biorhythm.png";
+    link.click();
+}
+
+function exportCSV(){
+    const rows=[["Cycle","Days","Value","State"]];
+    allCycles.forEach(c=>{
+        const state=c.value>0.5?"High":c.value<-0.5?"Low":"Stable";
+        rows.push([c.name,c.days,c.value.toFixed(4),state]);
+    });
+    let csvContent="data:text/csv;charset=utf-8," + rows.map(r=>r.join(",")).join("\n");
+    const encoded=encodeURI(csvContent);
+    const link=document.createElement("a");
+    link.setAttribute("href",encoded);
+    link.setAttribute("download","biorhythm.csv");
+    document.body.appendChild(link); link.click(); link.remove();
+}
+
+// -------------------------
+// Dark Mode
+// -------------------------
+document.getElementById("toggleMode").addEventListener("click",()=>{
+    document.body.classList.toggle("dark");
+    document.getElementById("toggleMode").textContent = document.body.classList.contains("dark")?"☀️":"🌙";
+});
+
+// -------------------------
+// Initialize
+// -------------------------
+window.addEventListener("DOMContentLoaded",()=>{
+    renderFilterOptions();
+    calculateBiorhythm();
+});
+
+// -------------------------
+// Inline Service Worker for PWA
+// -------------------------
+if('serviceWorker' in navigator){
+  const swCode = `
+    const CACHE_NAME = "biorhythm-cache-v1";
+    const urlsToCache = [".","index.html","manifest.json"];
+    self.addEventListener("install", e => {
+      e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(urlsToCache)));
+    });
+    self.addEventListener("fetch", e => {
+      e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+    });
+  `;
+  const blob = new Blob([swCode], {type: "application/javascript"});
+  const swURL = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swURL)
+    .then(reg => console.log("Inline SW registered:", reg.scope))
+    .catch(err => console.error("SW registration failed:", err));
+}
+</script>
+
+</body>
+</html>
